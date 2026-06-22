@@ -1400,8 +1400,26 @@ function closeAuthModal() {
     document.getElementById("auth-modal").classList.remove("open");
 }
 
-function toggleAuthMode() {
-    openAuthModal(!isRegisterMode);
+// Google Sign-in Handler
+async function handleGoogleSignIn() {
+    if (!cloudMode) {
+        alert("โปรดคลิก Setup API เพื่อตั้งค่าเชื่อมต่อ Firebase ก่อนใช้งานระบบสมาชิก");
+        return;
+    }
+    
+    const errorAlert = document.getElementById("auth-error-msg");
+    errorAlert.style.display = "none";
+    
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        await auth.signInWithPopup(provider);
+        showToast("เข้าสู่ระบบด้วย Google สำเร็จ!");
+        closeAuthModal();
+    } catch (err) {
+        console.error("Google login failed:", err);
+        errorAlert.textContent = err.message + " (หากรันบนเว็บบนระบบจริง โปรดเช็คว่าได้แอดโดเมนนี้ใน Authorized Domains ของ Firebase Console หรือยัง)";
+        errorAlert.style.display = "block";
+    }
 }
 
 // Sign Up / Sign In handle
@@ -1567,6 +1585,7 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleAuthMode();
     });
     document.getElementById("auth-form").addEventListener("submit", handleAuthFormSubmit);
+    document.getElementById("btn-google-auth").addEventListener("click", handleGoogleSignIn);
     
     // 14. Admin refresh users
     document.getElementById("btn-refresh-users").addEventListener("click", () => {

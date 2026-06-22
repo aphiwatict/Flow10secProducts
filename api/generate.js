@@ -1,11 +1,5 @@
-const admin = require('firebase-admin');
-
-// Initialize Firebase Admin for verifying ID tokens
-if (!admin.apps.length) {
-    admin.initializeApp({
-        projectId: 'flow10secproducts'
-    });
-}
+// Public Firebase API Key for flow10secproducts
+const FIREBASE_API_KEY = "AIzaSyDwat6zEbWPclrlix-jgxx3zMyTSZpMMN0";
 
 module.exports = async (req, res) => {
     // Enable CORS to support local development calls
@@ -40,8 +34,29 @@ module.exports = async (req, res) => {
     
     let uid = "";
     try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        uid = decodedToken.uid;
+        // Verify Firebase ID Token using Google Identity Toolkit REST API (No Private Keys required!)
+        const verifyUrl = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`;
+        const verifyResponse = await fetch(verifyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ idToken: token })
+        });
+        
+        if (!verifyResponse.ok) {
+            const errText = await verifyResponse.text();
+            throw new Error(`Token verification failed: ${verifyResponse.status} - ${errText}`);
+        }
+        
+        const verifyData = await verifyResponse.json();
+        if (!verifyData.users || verifyData.users.length === 0) {
+            throw new Error("No user records returned from token verification");
+        }
+        
+        uid = verifyData.users[0].localId;
+        console.log(`Token verified securely for UID: ${uid}`);
+        
     } catch (err) {
         console.error("Token verification failed:", err);
         return res.status(401).json({ error: 'Unauthorized: Invalid ID Token' });
@@ -50,7 +65,7 @@ module.exports = async (req, res) => {
     // 2. Fetch Gemini API Key from environment variables (secured on Vercel backend)
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
-        return res.status(500).json({ error: 'Server configuration error: Gemini API Key is not set in environment variables' });
+        return res.status(500).json({ error: 'Server configuration error: Gemini API Key is not set in Vercel environment variables' });
     }
 
     // 3. Query Gemini API

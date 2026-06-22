@@ -3,7 +3,5 @@
   "version": "1.0.0",
   "description": "Cinematic Storyboard & Prompt Synthesizer for Veo 3 / Flow",
   "main": "index.html",
-  "dependencies": {
-    "firebase-admin": "^11.8.0"
-  }
+  "dependencies": {}
 }
