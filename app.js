@@ -412,7 +412,8 @@ let currentState = {
     titleEn: "",
     keywords: [],
     character: "",
-    panels: []
+    panels: [],
+    selectedRatio: "16:9"
 };
 
 let activePanelIndex = 0;
@@ -683,12 +684,14 @@ function loadHistoryLogs(uid) {
 }
 
 function loadStoryboardFromData(data) {
+    const currentRatio = (currentState && currentState.selectedRatio) ? currentState.selectedRatio : "16:9";
     currentState = {
         titleTh: data.titleTh,
         titleEn: data.titleEn,
         keywords: [...data.keywords],
         character: data.character,
-        panels: JSON.parse(JSON.stringify(data.panels))
+        panels: JSON.parse(JSON.stringify(data.panels)),
+        selectedRatio: currentRatio
     };
     document.getElementById("story-title").value = data.titleTh;
     updateUI();
@@ -1031,12 +1034,14 @@ function loadPreset(key) {
     // Save to localStorage to guarantee a different selection on next refresh
     localStorage.setItem("lastStoryboardPreset", key);
     
+    const currentRatio = (currentState && currentState.selectedRatio) ? currentState.selectedRatio : "16:9";
     currentState = {
         titleTh: data.titleTh,
         titleEn: data.titleEn,
         keywords: [...data.keywords],
         character: data.character,
-        panels: JSON.parse(JSON.stringify(data.panels)) // deep clone
+        panels: JSON.parse(JSON.stringify(data.panels)), // deep clone
+        selectedRatio: currentRatio
     };
     
     // Set input value
@@ -1210,23 +1215,22 @@ ${p.dialogue ? `* Thai dialogue: "${p.dialogue}"` : ''}
     document.getElementById("poster-prompt-text").textContent = posterPrompt.trim();
 
     // 2. Veo 3 Video Prompt (Step 2)
-    let veoPrompt = `สร้างวิดีโอ 10 วินาที ความยาวรวมทั้งหมดแบ่งเป็น 8 ฉากต่อเนื่องกัน โดยใช้คาแรคเตอร์และสไตล์ภาพเดียวกันตลอดทั้งวิดีโอ
+    const ratioStr = currentState.selectedRatio || "16:9";
+    let veoPrompt = `[สไตล์และสัดส่วนภาพ: Cinematic Animation, Pixar 3D style, ultra detailed rendering, consistent design, Aspect Ratio ${ratioStr}]
 
-Character Consistency: ${currentState.character}
-สไตล์ภาพ: Cinematic Animation, Pixar-quality 3D, ultra detailed, realistic lighting, expressive facial animation, consistent character design across all scenes, 16:9, high quality movie rendering, professional storyboard flow.
+Character: ${currentState.character}
 
---------------------------------------------------
+ลำดับฉากสตอรี่บอร์ด (8 ฉากต่อเนื่องกันเป็นเรื่องเดียว):
 `;
 
     currentState.panels.forEach((p, idx) => {
         veoPrompt += `
-ฉากที่ ${idx + 1} — ${p.title} (เวลา ${p.time})
-- มุมกล้อง (Camera): ${p.camera}
-- ตัวละครหรือวัตถุ (Subject): ${currentState.character.split('.')[0]} มีอารมณ์ ${p.emotion}
-- การกระทำ (Action): ${p.action}
-- ฉากและบรรยากาศ (Scene & Atmosphere): ${p.details}
-- เสียงประกอบ (Audio): ${p.dialogue ? `บทพูดภาษาไทยเสียงสว่างสดใส: "${p.dialogue}"` : 'ไม่มีบทพูด มีเพียงเสียงประกอบและดนตรีคลอเบาๆ'}
-- เสียงแวดล้อม: เสียงบรรยากาศที่สอดคล้องกับธรรมชาติในฉาก
+ฉากที่ ${idx + 1} — ${p.title} (ช่วงเวลา ${p.time})
+* มุมกล้อง: ${p.camera}
+* คาแรคเตอร์: ${currentState.character.split('.')[0]} แสดงออกทางอารมณ์แบบ ${p.emotion}
+* รายละเอียดเหตุการณ์: ${p.action}
+* องค์ประกอบฉากหลัง: ${p.details}
+* บทพูด/เสียง: ${p.dialogue ? `บทพูดภาษาไทย: "${p.dialogue}"` : 'เน้นเสียงบรรยากาศแวดล้อม ไม่มีเสียงบรรยายหลัก'}
 `;
     });
 
@@ -1787,5 +1791,24 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-refresh-users").addEventListener("click", () => {
         loadAdminUserPanel();
         showToast("รีเฟรชบัญชีผู้ใช้งานสำเร็จ");
+    });
+
+    // 15. Aspect Ratio Selectors
+    document.querySelectorAll(".ratio-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".ratio-btn").forEach(b => {
+                b.classList.remove("active");
+                b.style.background = "transparent";
+                b.style.color = "var(--text-secondary)";
+            });
+            btn.classList.add("active");
+            btn.style.background = "rgba(99, 102, 241, 0.2)";
+            btn.style.color = "#fff";
+            
+            const ratio = btn.getAttribute("data-ratio");
+            currentState.selectedRatio = ratio;
+            compilePrompts();
+            showToast("ปรับสัดส่วนวิดีโอเป็น " + ratio + " สำเร็จ!");
+        });
     });
 });
