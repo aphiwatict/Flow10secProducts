@@ -1480,12 +1480,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const randomKey = finalKeys[Math.floor(Math.random() * finalKeys.length)];
     loadPreset(randomKey);
     
-    // 3. Generate Button (Runs Gemini AI if configured, else fallbacks to template synthesizer)
+    // 3. Generate Button (Runs Gemini AI if on web or configured locally, else fallbacks to template synthesizer)
     document.getElementById("btn-generate").addEventListener("click", () => {
         const title = document.getElementById("story-title").value;
         if (title.trim()) {
+            const isLocal = window.location.protocol === "file:";
             const creds = window.ConfigManager.getCredentials();
-            if (creds && creds.geminiApiKey) {
+            const hasGeminiKey = creds && creds.geminiApiKey;
+            
+            if (!isLocal || hasGeminiKey) {
                 generateStoryboardWithGemini(title);
             } else {
                 // Synthesize local template fallback
@@ -1582,7 +1585,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 12. Config Credentials Modal binds
-    document.getElementById("btn-config-settings").addEventListener("click", openConfigModal);
+    const configBtn = document.getElementById("btn-config-settings");
+    if (configBtn) {
+        configBtn.addEventListener("click", openConfigModal);
+    }
     document.getElementById("btn-close-config").addEventListener("click", closeConfigModal);
     document.getElementById("btn-cancel-config").addEventListener("click", closeConfigModal);
     document.getElementById("config-modal-overlay").addEventListener("click", closeConfigModal);
