@@ -15,10 +15,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isSystemAdminEmail() {
+      return isSignedIn() && request.auth.token.email == 'aphiwatict@gmail.com';
+    }
+
     function isAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        getUserData().role == 'admin';
+      return isSignedIn() && (
+        isSystemAdminEmail() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          getUserData().role == 'admin'
+        )
+      );
     }
 
     // User Profile Rules
@@ -26,10 +33,13 @@ service cloud.firestore {
       // Users can read their own profile. Admins can read all profiles.
       allow read: if isOwner(userId) || isAdmin();
       
-      // On creation, the user must set their initial role to 'general'
-      allow create: if isOwner(userId) && request.resource.data.role == 'general';
+      // On creation, the user must set their initial role to 'general' (unless they are the system admin email)
+      allow create: if isOwner(userId) && (
+        request.resource.data.role == 'general' ||
+        (isSystemAdminEmail() && request.resource.data.role == 'admin')
+      );
       
-      // Users can update their own profile, but CANNOT change their role. 
+      // Users can update their own profile, but CANNOT change their role (unless they are admin). 
       // Admins have full access to change profiles and roles.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       

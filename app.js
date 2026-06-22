@@ -489,7 +489,7 @@ async function onUserSessionChanged(user) {
                 // Initialize default profile safely
                 const initialProfile = {
                     email: user.email,
-                    role: "general",
+                    role: user.email === "aphiwatict@gmail.com" ? "admin" : "general",
                     signupDate: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 await userRef.set(initialProfile);
@@ -497,6 +497,17 @@ async function onUserSessionChanged(user) {
             }
             
             currentProfile = doc.data();
+            
+            // Auto-promote aphiwatict@gmail.com to admin if role is different
+            if (user.email === "aphiwatict@gmail.com" && currentProfile.role !== "admin") {
+                currentProfile.role = "admin";
+                try {
+                    await userRef.update({ role: "admin" });
+                    console.log("Automatically promoted aphiwatict@gmail.com to admin in Firestore.");
+                } catch (err) {
+                    console.error("Failed to automatically promote user to admin in Firestore:", err);
+                }
+            }
             
             // Set up real-time listener for current day's usage
             listenToDailyCredits(user.uid);
