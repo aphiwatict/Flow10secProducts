@@ -912,7 +912,7 @@ You must structure the JSON output with these fields:
         
     } catch (err) {
         console.error("AI Generation failed:", err);
-        showToast("❌ เจนบอร์ดล้มเหลว ตรวจสอบคีย์ API หรือประวัติเครดิตของคุณ");
+        showToast("❌ เจนบอร์ดล้มเหลว: " + err.message);
         compilePrompts(); // restore text
     }
 }
