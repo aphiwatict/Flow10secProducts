@@ -805,7 +805,7 @@ async function generateStoryboardWithGemini(title) {
         } else {
             // Local Offline Mode: Make direct browser-to-Gemini API call using LocalStorage key
             const key = creds.geminiApiKey;
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
             
             const systemInstruction = `You are a professional Cinematic Infographic Storyboard Poster Designer. Your task is to receive a short video title (which might be in Thai or English) and turn it into a short 10-second cinematic story composed of exactly 8 panels.
 Each panel represents 1.25 seconds.
