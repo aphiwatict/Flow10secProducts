@@ -746,6 +746,58 @@ function loadAdminUserPanel() {
     });
 }
 
+// --- SweetAlert2 Progress Helpers ---
+let progressModal = null;
+function showProgressModal(stepIndex) {
+    const steps = [
+        "1. ตรวจสอบโควตาเครดิตผู้ใช้",
+        "2. เชื่อมต่อระบบ AI (Gemini 3.5 Flash)",
+        "3. กำลังร่างฉาก คีย์เวิร์ด และบทสนทนา",
+        "4. กำลังคำนวณและสร้างภาพโปสเตอร์สตอรี่บอร์ด",
+        "5. บันทึกข้อมูลประวัติลงฐานข้อมูลสำเร็จ"
+    ];
+    
+    let stepsHtml = `<div style="text-align: left; font-family: 'Inter', 'Sarabun', sans-serif; line-height: 1.6; margin-top: 15px;">`;
+    steps.forEach((step, idx) => {
+        const isDone = idx < stepIndex;
+        const isCurrent = idx === stepIndex;
+        const color = isDone ? "#2ecc71" : (isCurrent ? "#3498db" : "#888888");
+        const icon = isDone ? "✅" : (isCurrent ? "⏳" : "⚪");
+        const fontWeight = isCurrent ? "bold" : "normal";
+        stepsHtml += `<div style="color: ${color}; font-weight: ${fontWeight}; margin: 8px 0; display: flex; align-items: center; gap: 8px;">
+            <span>${icon}</span>
+            <span>${step}</span>
+        </div>`;
+    });
+    stepsHtml += `</div>`;
+    
+    if (!progressModal) {
+        progressModal = Swal.fire({
+            title: '🪄 กำลังเจนสตอรี่บอร์ดด้วย AI',
+            html: stepsHtml,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            background: '#1c1c21',
+            color: '#ffffff',
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    } else {
+        Swal.update({
+            html: stepsHtml
+        });
+    }
+}
+
+function closeProgressModal() {
+    if (progressModal) {
+        Swal.close();
+        progressModal = null;
+    }
+}
+
 // --- Gemini AI Request Engine ---
 async function generateStoryboardWithGemini(title) {
     const creds = window.ConfigManager.getCredentials();
@@ -760,22 +812,49 @@ async function generateStoryboardWithGemini(title) {
         return;
     }
     
-    // 1. Check Credits constraints
+    // Step 1: Check Credits constraints
+    showProgressModal(0);
+    
     if (cloudMode && currentUser && currentProfile) {
         const role = currentProfile.role || "general";
         const limit = LIMITS_TIERS[role];
         if (dailyUsageCount >= limit) {
-            alert(`⚠️ โควตาการสร้างวิดีโอวันนี้ของคุณเต็มแล้ว! (${dailyUsageCount}/${limit} ครั้ง)\nสมัครสมาชิก VIP หรือติดต่อผู้ดูแลระบบเพื่อปรับเครดิตเพิ่ม`);
+            closeProgressModal();
+            Swal.fire({
+                icon: 'warning',
+                title: 'โควตาเต็ม!',
+                text: `โควตาการสร้างวิดีโอวันนี้ของคุณเต็มแล้ว (${dailyUsageCount}/${limit} ครั้ง) โปรดติดต่อผู้ดูแลระบบเพื่อปรับเครดิตเพิ่ม`,
+                confirmButtonColor: '#3498db',
+                background: '#1c1c21',
+                color: '#ffffff'
+            });
             return;
         }
     } else if (cloudMode && !currentUser) {
-        alert("🔒 โปรดเข้าสู่ระบบเพื่อเจนสตอรี่บอร์ด AI จริง และบันทึกประวัติการสร้างของคุณ");
-        openAuthModal(false);
+        closeProgressModal();
+        Swal.fire({
+            icon: 'info',
+            title: 'โปรดเข้าสู่ระบบ',
+            text: 'กรุณาเข้าสู่ระบบเพื่อสร้างสตอรี่บอร์ดด้วย AI และบันทึกประวัติการใช้งานของคุณ',
+            confirmButtonText: 'เข้าสู่ระบบตอนนี้',
+            confirmButtonColor: '#3498db',
+            showCancelButton: true,
+            cancelButtonText: 'ยกเลิก',
+            background: '#1c1c21',
+            color: '#ffffff'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                openAuthModal(false);
+            }
+        });
         return;
     }
 
+    // Step 2: Connect to Gemini
+    showProgressModal(1);
+
     // Show loading state in outputs
-    document.getElementById("veo-prompt-text").textContent = "กำลังวิเคราะห์เรื่องราวและส่งให้ปัญญาประดิษฐ์ AI (Gemini 1.5 Flash) เจนโครงร่างสตอรี่บอร์ด กรุณารอประมาณ 5-10 วินาที...";
+    document.getElementById("veo-prompt-text").textContent = "กำลังวิเคราะห์เรื่องราวและส่งให้ปัญญาประดิษฐ์ AI (Gemini 3.5 Flash) เจนโครงร่างสตอรี่บอร์ด กรุณารอประมาณ 5-10 วินาที...";
     document.getElementById("poster-prompt-text").textContent = "กำลังส่งหัวข้อวิเคราะห์กับ Gemini API...";
     document.getElementById("svg-poster-container").innerHTML = `<div class="history-placeholder"><i class="fa-solid fa-circle-notch fa-spin"></i><p>กำลังคำนวณและวาด Vector Storyboard Poster...</p></div>`;
 
@@ -800,6 +879,8 @@ async function generateStoryboardWithGemini(title) {
                 throw new Error(`Proxy generation failed: ${errText}`);
             }
             
+            // Step 3: Drafting scenes
+            showProgressModal(2);
             result = await response.json();
             
         } else {
@@ -872,13 +953,21 @@ You must structure the JSON output with these fields:
                 throw new Error(`Gemini API Error: Status ${response.status}`);
             }
             
+            // Step 3: Drafting scenes
+            showProgressModal(2);
+            
             const responseData = await response.json();
             const jsonText = responseData.candidates[0].content.parts[0].text;
             result = JSON.parse(jsonText);
         }
 
+        // Step 4: Drawing poster
+        showProgressModal(3);
+
         // 3. Post-Generation DB updates (increment daily usage + save storyboard to history)
         if (cloudMode && currentUser && result) {
+            // Step 5: Saving history
+            showProgressModal(4);
             const today = getTodayDateStr();
             const usageRef = db.collection("users").doc(currentUser.uid).collection("usage").doc(today);
             
@@ -908,11 +997,28 @@ You must structure the JSON output with these fields:
             panels: result.panels
         });
         
-        showToast("🪄 ปัญญาประดิษฐ์ AI สังเคราะห์สตอรี่บอร์ดสำเร็จ!");
+        closeProgressModal();
+        Swal.fire({
+            icon: 'success',
+            title: '🪄 เจนสตอรี่บอร์ดสำเร็จ!',
+            text: 'ระบบได้ร่างฉากพร้อมคำนวณเวกเตอร์โปสเตอร์เรียบร้อยแล้ว',
+            timer: 2500,
+            showConfirmButton: false,
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
         
     } catch (err) {
         console.error("AI Generation failed:", err);
-        showToast("❌ เจนบอร์ดล้มเหลว: " + err.message);
+        closeProgressModal();
+        Swal.fire({
+            icon: 'error',
+            title: '❌ เจนบอร์ดล้มเหลว',
+            text: err.message,
+            confirmButtonColor: '#e74c3c',
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
         compilePrompts(); // restore text
     }
 }
@@ -1307,13 +1413,39 @@ function copyToClipboard(elementId) {
 }
 
 function showToast(message) {
-    const toast = document.getElementById("toast");
-    toast.textContent = message;
-    toast.classList.add("show");
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        background: '#1c1c21',
+        color: '#ffffff',
+        iconColor: '#3498db',
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer);
+            toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
+    });
+
+    let icon = 'success';
+    if (message.includes('⚠️') || message.includes('Warning') || message.includes('เต็ม') || message.includes('ไม่พบคีย์')) {
+        icon = 'warning';
+    } else if (message.includes('❌') || message.includes('ล้มเหลว') || message.includes('ไม่สำเร็จ') || message.includes('error')) {
+        icon = 'error';
+    } else if (message.includes('🔒') || message.includes('ข้อมูล') || message.includes('กรุณา') || message.includes('โปรด')) {
+        icon = 'info';
+    }
     
-    setTimeout(() => {
-        toast.classList.remove("show");
-    }, 2500);
+    // Clean emojis from the message text since we use SweetAlert2 icons instead
+    const cleanedMessage = message
+        .replace(/[⚠️❌🔒🪄✅⏳⚪💡]/g, '')
+        .trim();
+
+    Toast.fire({
+        icon: icon,
+        title: cleanedMessage
+    });
 }
 
 // Switch Tabs
@@ -1348,7 +1480,14 @@ function saveConfigCredentials() {
     const firebaseJsonStr = document.getElementById("config-firebase-json").value.trim();
     
     if (!geminiKey) {
-        alert("โปรดกรอก Gemini API Key");
+        Swal.fire({
+            icon: 'warning',
+            title: 'โปรดกรอกข้อมูล',
+            text: 'โปรดกรอก Gemini API Key',
+            confirmButtonColor: '#3498db',
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
         return;
     }
     
@@ -1357,7 +1496,14 @@ function saveConfigCredentials() {
         try {
             firebaseConfig = JSON.parse(firebaseJsonStr);
         } catch (e) {
-            alert("รูปแบบ Firebase JSON Object ไม่ถูกต้อง กรุณาตรวจสอบวงเล็บและเครื่องหมายอัญประกาศ");
+            Swal.fire({
+                icon: 'error',
+                title: 'รูปแบบไม่ถูกต้อง',
+                text: 'รูปแบบ Firebase JSON Object ไม่ถูกต้อง กรุณาตรวจสอบวงเล็บและเครื่องหมายอัญประกาศ',
+                confirmButtonColor: '#e74c3c',
+                background: '#1c1c21',
+                color: '#ffffff'
+            });
             return;
         }
     }
@@ -1370,7 +1516,14 @@ function saveConfigCredentials() {
         // Re-initialize backend instantly
         initializeCloudBackend();
     } catch (e) {
-        alert("ไม่สามารถบันทึกค่าได้: " + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: "ไม่สามารถบันทึกค่าได้: " + e.message,
+            confirmButtonColor: '#e74c3c',
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
     }
 }
 
@@ -1411,10 +1564,22 @@ function closeAuthModal() {
     document.getElementById("auth-modal").classList.remove("open");
 }
 
+function toggleAuthMode() {
+    isRegisterMode = !isRegisterMode;
+    openAuthModal(isRegisterMode);
+}
+
 // Google Sign-in Handler
 async function handleGoogleSignIn() {
     if (!cloudMode) {
-        alert("โปรดคลิก Setup API เพื่อตั้งค่าเชื่อมต่อ Firebase ก่อนใช้งานระบบสมาชิก");
+        Swal.fire({
+            icon: 'info',
+            title: 'ต้องการการตั้งค่า',
+            text: 'โปรดคลิก Setup API เพื่อตั้งค่าเชื่อมต่อ Firebase ก่อนใช้งานระบบสมาชิก',
+            confirmButtonColor: '#3498db',
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
         return;
     }
     
@@ -1436,7 +1601,14 @@ async function handleGoogleSignIn() {
 // Sign Up / Sign In handle
 async function handleAuthFormSubmit() {
     if (!cloudMode) {
-        alert("โปรดคลิก Setup API เพื่อตั้งค่าเชื่อมต่อ Firebase ก่อนใช้งานระบบสมาชิก");
+        Swal.fire({
+            icon: 'info',
+            title: 'ต้องการการตั้งค่า',
+            text: 'โปรดคลิก Setup API เพื่อตั้งค่าเชื่อมต่อ Firebase ก่อนใช้งานระบบสมาชิก',
+            confirmButtonColor: '#3498db',
+            background: '#1c1c21',
+            color: '#ffffff'
+        });
         return;
     }
     
@@ -1499,7 +1671,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     showToast("โหลดสตอรี่บอร์ดสำหรับ '" + title + "' สำเร็จ!");
                 } else {
                     // Alert that actual AI generation requires API key setup
-                    alert("💡 เคล็ดลับ: คุณกำลังทำงานในโหมดตัวอย่าง (Offline Demo)\nหากต้องการใช้งานปัญญาประดิษฐ์ AI เจนสตอรี่บอร์ดจริงจาก Gemini โปรดตั้งค่า Setup API ด้านขวาบนก่อนนะครับ!");
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'เคล็ดลับ',
+                        html: 'คุณกำลังทำงานในโหมดตัวอย่าง (Offline Demo)<br>หากต้องการใช้งานปัญญาประดิษฐ์ AI เจนสตอรี่บอร์ดจริงจาก Gemini โปรดตั้งค่า Setup API ด้านขวาบนก่อนนะครับ!',
+                        confirmButtonColor: '#3498db',
+                        background: '#1c1c21',
+                        color: '#ffffff'
+                    });
                     showToast("⚠️ ไม่พบคีย์ Gemini API Key");
                     openConfigModal();
                 }
