@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Storyboard & Veo 3 Video Prompt Generator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Local Configurations Manager -->
+    <script src="config.js"></script>
+    
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon"><i class="fa-solid fa-clapperboard"></i></div>
+                <div class="logo-text">
+                    <h1>Flow 10s Storyboard</h1>
+                    <p>Cinematic Storyboard & Prompt Synthesizer for Veo 3 / Flow</p>
+                </div>
+            </div>
+            
+            <!-- User Status & Config Panel Widget -->
+            <div class="header-actions">
+                <button id="btn-config-settings" class="btn-icon" title="ตั้งค่า Firebase & Gemini API Key">
+                    <i class="fa-solid fa-cog"></i> Setup API
+                </button>
+                <div id="auth-widget" class="auth-widget-container">
+                    <!-- Loaded dynamically via JS: either Sign-in button or user profile card -->
+                    <button id="btn-auth-trigger" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-user"></i> เข้าสู่ระบบ
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout Split -->
+        <main class="app-main">
+            <!-- Left Side: Creator Controls & Interactive Panel Board -->
+            <section class="workspace-section">
+                <!-- Title Generator Panel -->
+                <div class="control-card glass-panel">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-wand-magic-sparkles"></i> สร้างสตอรี่บอร์ดด้วย AI (Gemini)</h2>
+                        <p class="subtitle">พิมพ์ชื่อเรื่องเพื่อเจนจริงด้วย Gemini หรือเลือกตัวอย่างต้นแบบด้านล่าง</p>
+                    </div>
+                    <div class="input-group">
+                        <div class="text-input-wrapper">
+                            <i class="fa-solid fa-pen-nib input-icon"></i>
+                            <input type="text" id="story-title" placeholder="พิมพ์ชื่อเรื่องเพื่อเจนสตอรี่บอร์ด AI... (เช่น สุนัขหลงทางในไซเบอร์พังค์)" value="เด็กน้อยกับแคคตัสพูดได้">
+                        </div>
+                        <button id="btn-generate" class="btn btn-primary">
+                            <span>สร้างด้วย AI</span> <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <!-- Preset Chips -->
+                    <div class="presets-wrapper">
+                        <span class="preset-label">ตัวอย่างยอดนิยม:</span>
+                        <div class="preset-chips">
+                            <button class="chip active" data-preset="cactus">🌵 แคคตัสพูดได้</button>
+                            <button class="chip" data-preset="space">🚀 หุ่นยนต์กู้ภัยอวกาศ</button>
+                            <button class="chip" data-preset="coffee">☕ บาริสต้าเวทมนตร์</button>
+                            <button class="chip" data-preset="cat">🐱 เจ้าเหมียวหัวขโมย</button>
+                            <button class="chip" data-preset="cooking">🍳 เมนูไข่เจียวระดับโลก</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Storyboard Panel Grid -->
+                <div class="storyboard-container">
+                    <div class="board-header">
+                        <h3><i class="fa-solid fa-film"></i> สตอรี่บอร์ด 8 ช็อต (ช็อตละ 1.25 วินาที)</h3>
+                        <p class="board-desc">คลิกที่ช็อตใดๆ เพื่อปรับแต่งรายละเอียด คาแรคเตอร์ มุมกล้อง หรือบทพูดภาษาไทย</p>
+                    </div>
+                    <div class="panels-grid" id="panels-grid">
+                        <!-- Rendered dynamically by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Side: Prompt Outputs & Preview -->
+            <section class="preview-section">
+                <!-- Tabs Selector -->
+                <div class="tabs-nav glass-panel">
+                    <button class="tab-btn active" data-tab="tab-veo"><i class="fa-solid fa-code"></i> Veo 3 Video</button>
+                    <button class="tab-btn" data-tab="tab-poster"><i class="fa-solid fa-scroll"></i> Poster</button>
+                    <button class="tab-btn" data-tab="tab-visual"><i class="fa-solid fa-image"></i> Poster Preview</button>
+                    <button class="tab-btn" data-tab="tab-history" id="tab-btn-history"><i class="fa-solid fa-clock-rotate-left"></i> History</button>
+                    <button class="tab-btn" data-tab="tab-admin" id="tab-btn-admin" style="display: none;"><i class="fa-solid fa-user-shield"></i> Admin</button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="tab-contents">
+                    <!-- Tab: Veo 3 Video Prompt -->
+                    <div class="tab-pane active" id="tab-veo">
+                        <div class="output-card glass-panel">
+                            <div class="output-header">
+                                <div class="title-desc">
+                                    <h3><i class="fa-solid fa-clapperboard"></i> Veo 3 Video Prompt</h3>
+                                    <p>คัดลอกพรอมต์นี้ไปใส่ใน <strong>Veo 3</strong> หรือ <strong>Flow</strong> เพื่อสร้างวิดีโอ 10 วินาที</p>
+                                </div>
+                                <button class="btn btn-copy" data-target="veo-prompt-text">
+                                    <i class="fa-solid fa-copy"></i> คัดลอก Code
+                                </button>
+                            </div>
+                            <div class="prompt-box">
+                                <pre><code id="veo-prompt-text">กำลังประมวลผล...</code></pre>
+                            </div>
+                            <div class="prompt-info-alert">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>พรอมต์นี้จะใช้โครงสร้างควบคุม Character Consistency และมุมกล้องอย่างชัดเจน สำหรับความยาว 10 วินาที แบ่ง 8 ฉากต่อเนื่อง</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Storyboard Poster Prompt -->
+                    <div class="tab-pane" id="tab-poster">
+                        <div class="output-card glass-panel">
+                            <div class="output-header">
+                                <div class="title-desc">
+                                    <h3><i class="fa-solid fa-file-invoice"></i> Storyboard Poster Prompt</h3>
+                                    <p>พรอมต์ภาษาอังกฤษแบบ 8 Panels สำหรับสร้างภาพโปสเตอร์โครงร่างใน Midjourney / DALL-E</p>
+                                </div>
+                                <button class="btn btn-copy" data-target="poster-prompt-text">
+                                    <i class="fa-solid fa-copy"></i> คัดลอก
+                                </button>
+                            </div>
+                            <div class="prompt-box">
+                                <pre><code id="poster-prompt-text">กำลังประมวลผล...</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Visual Poster Preview -->
+                    <div class="tab-pane" id="tab-visual">
+                        <div class="visual-poster-card glass-panel">
+                            <div class="visual-header">
+                                <h3><i class="fa-solid fa-images"></i> Storyboard Infographic Poster</h3>
+                                <button id="btn-download-svg" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-download"></i> ดาวน์โหลดภาพโปสเตอร์
+                                </button>
+                            </div>
+                            <div class="svg-container" id="svg-poster-container">
+                                <!-- Dynamic SVG Poster Rendered Here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Generation History (Saved in Firestore) -->
+                    <div class="tab-pane" id="tab-history">
+                        <div class="output-card glass-panel">
+                            <div class="output-header">
+                                <div class="title-desc">
+                                    <h3><i class="fa-solid fa-history"></i> ประวัติการสร้าง</h3>
+                                    <p>บันทึกประวัติสตอรี่บอร์ดที่เจนสำเร็จผ่าน Firestore ย้อนหลัง</p>
+                                </div>
+                            </div>
+                            <div class="history-list" id="history-items-container">
+                                <div class="history-placeholder">
+                                    <i class="fa-solid fa-box-open"></i>
+                                    <p>เข้าสู่ระบบเพื่อบันทึกและดูประวัติการสร้างส่วนตัวของคุณ</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Admin Management Console -->
+                    <div class="tab-pane" id="tab-admin">
+                        <div class="output-card glass-panel">
+                            <div class="output-header">
+                                <div class="title-desc">
+                                    <h3><i class="fa-solid fa-user-shield"></i> ผู้บริหารระบบ (Admin Console)</h3>
+                                    <p>การจัดการผู้ใช้ การกำหนดสิทธิ์บทบาท สมาชิก และแอดมินระบบ</p>
+                                </div>
+                                <button id="btn-refresh-users" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-arrows-rotate"></i> รีเฟรชข้อมูล
+                                </button>
+                            </div>
+                            <div class="admin-table-container">
+                                <table class="admin-users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Email</th>
+                                            <th>บทบาท / แพ็กเกจ</th>
+                                            <th>สิทธิ์การใช้งานต่อวัน</th>
+                                            <th>ดำเนินการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-users-list">
+                                        <!-- Loaded dynamically via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 Interactive Call-to-Action -->
+                <div class="action-card glass-panel gradient-border">
+                    <div class="card-body">
+                        <div class="action-icon"><i class="fa-solid fa-circle-question"></i></div>
+                        <div class="action-text">
+                            <h4>Step 3: นำคำสั่งไปสร้างภาพ Storyboard Poster ตอนนี้เลยหรือไม่?</h4>
+                            <p>คุณสามารถก๊อปปี้คีย์เวิร์ดและโปรเจกต์นี้ไปทำต่อ หรือคัดลอก Prompt ด้านบนเพื่อสั่งงานโมเดล AI ภาพ/วิดีโอได้ทันที</p>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button id="btn-step3-yes" class="btn btn-accent"><i class="fa-solid fa-circle-check"></i> ใช่, คัดลอกและไปหน้าสร้างภาพ</button>
+                        <button id="btn-step3-no" class="btn btn-outline">ดูข้อมูลแนะนำเพิ่มเติม</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Edit Panel Drawer (Slides in from the right) -->
+        <div class="drawer" id="edit-drawer">
+            <div class="drawer-overlay" id="drawer-overlay"></div>
+            <div class="drawer-content">
+                <div class="drawer-header">
+                    <h3><i class="fa-solid fa-sliders"></i> แก้ไขรายละเอียดฉากที่ <span id="edit-panel-num">1</span></h3>
+                    <button class="btn-close-drawer" id="btn-close-drawer"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-body">
+                    <!-- Form controls for active panel -->
+                    <div class="form-group">
+                        <label for="edit-title">ชื่อตอน / บทสรุปสั้น</label>
+                        <input type="text" id="edit-title" class="form-control">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-camera">มุมกล้อง (Camera Angle / Movement)</label>
+                        <select id="edit-camera" class="form-control">
+                            <option value="Wide establishing shot">Wide establishing shot (มุมกว้างเปิดเรื่อง)</option>
+                            <option value="Medium shot">Medium shot (มุมปานกลางเห็นครึ่งตัว)</option>
+                            <option value="Close-up">Close-up (มุมโคลสอัพโชว์ดีเทล/หน้าตา)</option>
+                            <option value="Extreme close-up">Extreme close-up (โคลสอัพใกล้มากโชว์สายตา/สิ่งของ)</option>
+                            <option value="Overhead shot">Overhead shot (มุมมองจากด้านบนตรงๆ)</option>
+                            <option value="Low angle shot">Low angle shot (มุมเงยสร้างความรู้สึกอลังการ)</option>
+                            <option value="Point-of-view (POV) shot">Point-of-view (POV) shot (มุมมองแทนสายตาตัวละคร)</option>
+                            <option value="Side profile shot">Side profile shot (มุมมองด้านข้าง)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-action">การกระทำหลัก (Main Action)</label>
+                        <textarea id="edit-action" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-details">รายละเอียดฉากและการแต่งกาย (Visual Details & Consistency)</label>
+                        <textarea id="edit-details" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-emotion">อารมณ์ / ปฏิกิริยา (Emotion or Reaction)</label>
+                        <input type="text" id="edit-emotion" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-dialogue">บทพูดภาษาไทย (Thai Dialogue) <span class="label-optional">(ถ้าไม่มี ปล่อยว่าง)</span></label>
+                        <input type="text" id="edit-dialogue" class="form-control" placeholder="เช่น 'สวัสดีเพื่อนยาก!'">
+                    </div>
+                </div>
+                <div class="drawer-footer">
+                    <button class="btn btn-outline" id="btn-cancel-edit">ยกเลิก</button>
+                    <button class="btn btn-primary" id="btn-save-edit">บันทึกการเปลี่ยนแปลง</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credentials Setup Modal -->
+        <div class="modal" id="config-modal">
+            <div class="modal-overlay" id="config-modal-overlay"></div>
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h3>⚙️ ตั้งค่าคีย์เชื่อมต่อระบบ (API Credentials)</h3>
+                    <button class="btn-close-modal" id="btn-close-config"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p class="info-text">คีย์ทั้งหมดจะถูกเก็บรักษาอย่างปลอดภัยใน **Local Storage ของบราวเซอร์นี้เท่านั้น** และไม่มีการบันทึกผ่านเซิร์ฟเวอร์ภายนอกใดๆ</p>
+                    
+                    <div class="form-group">
+                        <label for="config-gemini-key">Gemini API Key</label>
+                        <input type="password" id="config-gemini-key" class="form-control" placeholder="AIzaSy...">
+                        <span class="field-desc">รับคีย์ได้ฟรีจาก Google AI Studio</span>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label for="config-firebase-json">Firebase Web Config (JSON Object)</label>
+                        <textarea id="config-firebase-json" class="form-control" rows="8" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-app.firebaseapp.com",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:1234:web:abcd"
+}'></textarea>
+                        <span class="field-desc">ก๊อปปี้ออบเจกต์ config จากตั้งค่า Firebase Project ใน Console ของคุณ</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" id="btn-cancel-config">ยกเลิก</button>
+                    <button class="btn btn-primary" id="btn-save-config">บันทึกการตั้งค่า</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Modal (Login / Register) -->
+        <div class="modal" id="auth-modal">
+            <div class="modal-overlay" id="auth-modal-overlay"></div>
+            <div class="modal-content glass-panel" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3 id="auth-modal-title">🔐 เข้าสู่ระบบ</h3>
+                    <button class="btn-close-modal" id="btn-close-auth"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="auth-form" onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="auth-email">อีเมล</label>
+                            <input type="email" id="auth-email" class="form-control" required placeholder="name@domain.com">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label for="auth-password">รหัสผ่าน</label>
+                            <input type="password" id="auth-password" class="form-control" required minlength="6" placeholder="รหัสผ่านอย่างน้อย 6 หลัก">
+                        </div>
+                        <div class="form-group signup-only" id="group-confirm-password" style="margin-top: 1rem; display: none;">
+                            <label for="auth-confirm-password">ยืนยันรหัสผ่าน</label>
+                            <input type="password" id="auth-confirm-password" class="form-control" placeholder="ยืนยันรหัสผ่านให้ตรงกัน">
+                        </div>
+                        
+                        <div class="auth-message-alert error" id="auth-error-msg"></div>
+                        
+                        <button type="submit" class="btn btn-primary w-100" id="btn-auth-submit" style="margin-top: 1.5rem; width: 100%;">
+                            ยืนยันเข้าสู่ระบบ
+                        </button>
+                    </form>
+                    
+                    <div class="auth-toggle-wrapper">
+                        <span id="auth-toggle-text">ยังไม่มีบัญชีใช่หรือไม่?</span>
+                        <a href="#" id="link-toggle-auth">สมัครสมาชิกใหม่</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div class="toast" id="toast">คัดลอกไปยังคลิปบอร์ดแล้ว!</div>
+
+        <!-- Custom Prompt Guide Overlay Modal -->
+        <div class="modal" id="guide-modal">
+            <div class="modal-overlay" id="modal-overlay"></div>
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h3>💡 คำแนะนำการสร้างวิดีโอ 10 วินาทีใน Flow / Veo 3</h3>
+                    <button class="btn-close-modal" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p>เพื่อให้ได้ผลลัพธ์วิดีโอสั้น 10 วินาทีที่ดีที่สุดโดยใช้พรอมต์เหล่านี้ โปรดทำตามคำแนะนำดังนี้:</p>
+                    <ol>
+                        <li>
+                            <strong>สร้างภาพ Storyboard Poster ก่อน (Step 1)</strong>
+                            <p>ใช้คำสั่งจากแท็บ <em>Poster Prompt</em> ไปเจนภาพใน Midjourney (เวอร์ชั่น 6 หรือสูงกว่า) หรือ DALL-E 3 เพื่อดูภาพรวมของคาแรคเตอร์ ลำดับช็อต และโทนแสงสีแบบ Infographic</p>
+                        </li>
+                        <li>
+                            <strong>นำโค้ดสร้างวิดีโอ (Step 2) ไปสั่งงานใน Veo 3 / Flow</strong>
+                            <p>คัดลอกโค้ดทั้งหมดในแท็บ <em>Veo 3 Video Prompt</em> ไปใส่ในเครื่องมือสร้างวิดีโอ AI ของคุณ ตัวแปร Character Consistency และมุมกล้องที่เรียงร้อยต่อเนื่องกันทั้ง 8 ฉาก จะช่วยนำทางโมเดลให้เจนนิ่ง วิดีโอต่อเนื่องและคาแรคเตอร์ไม่เพี้ยน</p>
+                        </li>
+                        <li>
+                            <strong>การตั้งค่าสไตล์</strong>
+                            <p>ใน Flow/Luma/Veo แนะนำให้เลือกสไตล์เป็น 3D Animation หรือ Cinematic และปรับ Aspect Ratio เป็น 16:9 เสมอเพื่อให้สอดคล้องกับภาพมุมกว้างในพรอมต์</p>
+                        </li>
+                    </ol>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btn-close-modal-ok">เข้าใจแล้ว</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
